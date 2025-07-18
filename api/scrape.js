@@ -1,55 +1,54 @@
-// Файл: api/scrape.js
-
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Це головна функція, яку буде викликати Vercel
 module.exports = async (req, res) => {
-  const API_URL = 'https://uakino.best/engine/ajax/dle_filter.php';
-  const BASE_URL = 'https://uakino.best';
+  const API_URL = 'https://uakino.best/filmy/'; // Беремо з каталогу
 
   try {
-    const formData = new URLSearchParams();
-    formData.append('cstart', '1');
-    formData.append('pr', '30');
-    formData.append('dle_skin', 'uakino');
-
-    const response = await axios.post(API_URL, formData, {
+    const { data: html } = await axios.get(API_URL, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
       },
     });
 
-    const html = response.data.content;
     if (!html) {
-      return res.status(500).json({ error: "Відповідь не містить поля 'content'" });
+      console.log('Не отримано HTML зі сторінки');
+      return res.status(500).json({ error: "Не отримано HTML" });
     }
 
     const $ = cheerio.load(html);
     const movies = [];
+    
+    // Новий, більш надійний селектор для пошуку
+    $('.short-list .short-item').each((i, item) => {
+      try {
+        const linkElement = $(item).find('a.short-poster');
+        const title = $(item).find('div.short-title').text()?.trim();
+        const posterUrl = $(item).find('img').attr('src');
+        const moviePageUrl = linkElement.attr('href');
 
-    $('.short-item').each((i, item) => {
-      const linkElement = $(item).find('a.short-poster');
-      const title = $(item).find('div.short-title').text();
-      const posterUrl = $(item).find('img').attr('src');
-      const moviePageUrl = linkElement.attr('href');
-
-      if (title && posterUrl && moviePageUrl) {
-        movies.push({
-          id: moviePageUrl,
-          title: title.trim(),
-          poster: posterUrl.startsWith('http') ? posterUrl : `${BASE_URL}${posterUrl}`,
-          url: moviePageUrl,
-        });
+        if (title && posterUrl && moviePageUrl) {
+          movies.push({
+            id: moviePageUrl,
+            title: title,
+            poster: posterUrl.startsWith('http') ? posterUrl : `https://uakino.best${posterUrl}`,
+            url: moviePageUrl,
+          });
+        }
+      } catch (e) {
+          // Якщо виникне помилка на одній картці, ми її залогуємо, але не зупинимо весь процес
+          console.error('Помилка парсингу одного елемента:', e.message);
       }
     });
 
-    // Відправляємо успішну відповідь із чистими даними
+    console.log(`[API] Сформовано фільмів: ${movies.length}`);
+    
+    // Встановлюємо заголовок, щоб браузер розумів, що це JSON
+    res.setHeader('Content-Type', 'application/json');
     res.status(200).json(movies);
 
   } catch (error) {
-    // Відправляємо відповідь з помилкою
+    console.error('Глобальна помилка у функції:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
