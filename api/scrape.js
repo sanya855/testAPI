@@ -17,25 +17,24 @@ module.exports = async (req, res) => {
     $('.short-list .short-item').each((i, item) => {
       const linkElement = $(item).find('a.short-poster');
       
-      // ДОДАНО ПЕРЕВІРКУ: якщо linkElement не знайдено,
-      // пропускаємо цю ітерацію і переходимо до наступної.
-      if (!linkElement) {
-        return; // 'continue' для циклу .each()
-      }
+      // ✅ ГОЛОВНЕ ВИПРАВЛЕННЯ:
+      // Перевіряємо, чи існує linkElement, ПЕРЕД тим, як 
+      // звертатися до його властивостей (наприклад, .length)
+      if (linkElement && linkElement.length > 0) {
+        const title = $(item).find('div.short-title').text()?.trim();
+        const posterUrl = linkElement.find('img').attr('src');
+        const moviePageUrl = linkElement.attr('href');
 
-      const imgElement = linkElement.find('img');
-      const title = $(item).find('div.short-title').text()?.trim();
-      const posterUrl = imgElement.attr('src');
-      const moviePageUrl = linkElement.attr('href');
-
-      if (title && posterUrl && moviePageUrl) {
-        movies.push({
-          id: moviePageUrl,
-          title: title,
-          poster: posterUrl.startsWith('http') ? posterUrl : `https://uakino.best${posterUrl}`,
-          url: moviePageUrl,
-        });
+        if (title && posterUrl && moviePageUrl) {
+          movies.push({
+            id: moviePageUrl,
+            title: title,
+            poster: posterUrl.startsWith('http') ? posterUrl : `https://uakino.best${posterUrl}`,
+            url: moviePageUrl,
+          });
+        }
       }
+      // Якщо linkElement не знайдено, ми просто ігноруємо цей елемент і йдемо далі.
     });
 
     console.log(`[API] Сформовано фільмів: ${movies.length}`);
