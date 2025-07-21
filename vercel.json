@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/scrape.js": {
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  }
+}
