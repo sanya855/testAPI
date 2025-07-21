@@ -15,12 +15,11 @@ module.exports = async (req, res) => {
     const $ = cheerio.load(html);
     const movies = [];
     
-    // ✅ ОНОВЛЕНИЙ СЕЛЕКТОР: Тепер шукаємо елементи з класом "movie-item"
-    $('.movie-item').each((i, item) => {
+    // ✅ ОНОВЛЕНИЙ СЕЛЕКТОР: Тепер шукаємо '.movie-item' всередині '#dle-content'
+    $('#dle-content .movie-item').each((i, item) => {
       const linkElement = $(item).find('a.movie-item__poster');
       
       if (linkElement && linkElement.length > 0) {
-        // ✅ ОНОВЛЕНІ СЕЛЕКТОРИ для назви та постера
         const title = $(item).find('.movie-item__title').text()?.trim();
         const posterUrl = linkElement.find('img').attr('src');
         const moviePageUrl = linkElement.attr('href');
