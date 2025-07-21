@@ -1,9 +1,15 @@
 {
-    "functions": {
-        "api/scrape.js": {
-            "memory": 1024,
-            "maxDuration": 30,
-            "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
-        }
+  "builds": [
+    {
+      "src": "api/scrape.js",
+      "use": "@vercel/node"
     }
+  ],
+  "functions": {
+    "api/scrape.js": {
+      "memory": 1024,
+      "maxDuration": 45,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  }
 }
