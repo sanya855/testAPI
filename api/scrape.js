@@ -1,47 +1,67 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 
 module.exports = async (req, res) => {
-  const API_URL = 'https://uakino.best/filmy/';
-  const BASE_URL = 'https://uakino.best';
+  let browser = null;
 
   try {
-    const { data: html } = await axios.get(API_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      },
+    // Запускаємо браузер
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
 
-    const $ = cheerio.load(html);
-    const movies = [];
-    
-    // ✅ ОНОВЛЕНИЙ СЕЛЕКТОР: Тепер шукаємо '.movie-item' всередині '#dle-content'
-    $('#dle-content .movie-item').each((i, item) => {
-      const linkElement = $(item).find('a.movie-item__poster');
-      
-      if (linkElement && linkElement.length > 0) {
-        const title = $(item).find('.movie-item__title').text()?.trim();
-        const posterUrl = linkElement.find('img').attr('src');
-        const moviePageUrl = linkElement.attr('href');
+    const page = await browser.newPage();
 
-        if (title && posterUrl && moviePageUrl) {
-          movies.push({
+    // Йдемо на сторінку
+    await page.goto('https://uakino.best/filmy/');
+
+    // Чекаємо, поки на сторінці з'являться картки з фільмами
+    const movieItemSelector = '.movie-item';
+    await page.waitForSelector(movieItemSelector, { timeout: 15000 }); // Чекаємо до 15 секунд
+
+    // Витягуємо дані прямо зі сторінки
+    const movies = await page.$$eval(movieItemSelector, (items) => {
+      // Цей код виконується всередині браузера
+      return items.map(item => {
+        const titleEl = item.querySelector('.movie-item__title');
+        const posterLinkEl = item.querySelector('a.movie-item__poster');
+        const imgEl = posterLinkEl ? posterLinkEl.querySelector('img') : null;
+        
+        // Переконуємось, що всі елементи існують
+        if (titleEl && posterLinkEl && imgEl) {
+          const posterUrl = imgEl.getAttribute('src');
+          const moviePageUrl = posterLinkEl.getAttribute('href');
+          const title = titleEl.innerText.trim();
+          
+          return {
             id: moviePageUrl,
             title: title,
-            poster: posterUrl.startsWith('http') ? posterUrl : `${BASE_URL}${posterUrl}`,
+            // Додаємо повний шлях до постера
+            poster: posterUrl.startsWith('http') ? posterUrl : `https://uakino.best${posterUrl}`,
             url: moviePageUrl,
-          });
+          };
         }
-      }
+        return null;
+      }).filter(Boolean); // Видаляємо всі null результати
     });
 
-    console.log(`[API] Сформовано фільмів: ${movies.length}`);
-    
+    console.log(`[API] Puppeteer сформував фільмів: ${movies.length}`);
+
+    // Відправляємо успішну відповідь
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json(movies);
 
   } catch (error) {
-    console.error('Глобальна помилка у функції:', error.message);
+    console.error('Помилка у Puppeteer функції:', error.message);
     res.status(500).json({ error: error.message });
+  } finally {
+    // Завжди закриваємо браузер
+    if (browser !== null) {
+      await browser.close();
+    }
   }
 };
